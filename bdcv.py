@@ -122,8 +122,5 @@ if __name__ == '__main__':
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    for c in options.word:
-        print(c)
-
     client = BingDictClient(detect_lang(options.word), options.long, options.color)
     client.lookup(options.word.lower())
