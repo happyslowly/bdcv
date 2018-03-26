@@ -62,16 +62,13 @@ class BingDictClient(object):
 
     @staticmethod
     def __format_english_sample(text, word, nocolor):
-        words = text.split()
-        sentence = []
-        for w in words:
-            m = re.search(word, w, re.IGNORECASE)
-            if m:
-                sentence.append(BingDictClient.__format_text(w[m.start():m.end()], None if nocolor else 'yellow') +
-                                w[m.end():])
-            else:
-                sentence.append(w)
-        return ' '.join(sentence)
+        m = re.search(word, text, re.IGNORECASE)
+        if m:
+            return text[0:m.start()] + \
+                   BingDictClient.__format_text(text[m.start():m.end()], None if nocolor else 'yellow') + \
+                   text[m.end():]
+        else:
+            return text
 
     @staticmethod
     def __render(raw_json, long, nocolor):
