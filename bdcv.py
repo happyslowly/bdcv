@@ -22,10 +22,12 @@ class BingDictClient(object):
         'end': '\033[0m'
     }
 
-    def __init__(self):
+    def __init__(self, long, color):
+        self.long = long
+        self.color = True if color == 'on' else False
         self.__cache = BingDictClient.__load_cache()
 
-    def lookup(self, word, long, nocolor):
+    def lookup(self, word):
         if word not in self.__cache:
             full_url = BingDictClient.URL + word
             res = urllib.request.urlopen(full_url)
@@ -34,7 +36,28 @@ class BingDictClient(object):
             self.__write_cache()
         else:
             raw_json = zlib.decompress(self.__cache[word])
-        return BingDictClient.__render(raw_json, long, nocolor)
+        return self.__render(raw_json)
+
+    def __render(self, raw_json):
+        data = json.loads(raw_json)
+        word = data['word']
+
+        print(self.__format_entry('Pronunciation'))
+        for k, p in data['pronunciation'].items():
+            if not k.endswith('mp3'):
+                print('    %s. [%s]' % (k, p))
+
+        print(self.__format_entry('Definition'))
+        for d in data['defs']:
+            if d['pos'] == 'Web':
+                continue
+            print('    %s %s' % (d['pos'], self.__format_chinese(d['def'])))
+
+        if self.long:
+            print(self.__format_entry('Samples'))
+            for s in data['sams']:
+                print('  - %s' % self.__format_english_sample(s['eng'], word))
+                print('    %s' % self.__format_chinese(s['chn']))
 
     @staticmethod
     def __load_cache():
@@ -52,51 +75,26 @@ class BingDictClient(object):
         return (BingDictClient.COLOR[color_name] if color_name else '') + prefix + text + \
                (BingDictClient.COLOR['end'] if color_name else '')
 
-    @staticmethod
-    def __format_entry(text, nocolor):
-        return BingDictClient.__format_text(text, None if nocolor else 'cyan', '* ')
+    def __format_entry(self, text):
+        return BingDictClient.__format_text(text, 'cyan' if self.color else None, '* ')
 
-    @staticmethod
-    def __format_chinese(text, nocolor):
-        return BingDictClient.__format_text(text, None if nocolor else 'purple')
+    def __format_chinese(self, text):
+        return BingDictClient.__format_text(text, 'purple' if self.color else None)
 
-    @staticmethod
-    def __format_english_sample(text, word, nocolor):
+    def __format_english_sample(self, text, word):
         m = re.search(word, text, re.IGNORECASE)
         if m:
             return text[0:m.start()] + \
-                   BingDictClient.__format_text(text[m.start():m.end()], None if nocolor else 'yellow') + \
+                   BingDictClient.__format_text(text[m.start():m.end()], 'yellow' if self.color else None) + \
                    text[m.end():]
         else:
             return text
-
-    @staticmethod
-    def __render(raw_json, long, nocolor):
-        data = json.loads(raw_json)
-        word = data['word']
-
-        print(BingDictClient.__format_entry('Pronunciation', nocolor))
-        for k, p in data['pronunciation'].items():
-            if not k.endswith('mp3'):
-                print('    %s. [%s]' % (k, p))
-
-        print(BingDictClient.__format_entry('Definition', nocolor))
-        for d in data['defs']:
-            if d['pos'] == 'Web':
-                continue
-            print('    %s %s' % (d['pos'], BingDictClient.__format_chinese(d['def'], nocolor)))
-
-        if long:
-            print(BingDictClient.__format_entry('Samples', nocolor))
-            for s in data['sams']:
-                print('  - %s' % BingDictClient.__format_english_sample(s['eng'], word, nocolor))
-                print('    %s' % BingDictClient.__format_chinese(s['chn'], nocolor))
 
 
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--long', help='print full explanations', action='store_true')
-    parser.add_argument('--nocolor', help='print without color', action='store_true')
+    parser.add_argument('--color', choices=['on', 'off'], default='on', help='print without color, default on')
     parser.add_argument('word', help='the word to lookup')
     return parser
 
@@ -109,5 +107,5 @@ if __name__ == '__main__':
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    client = BingDictClient()
-    client.lookup(options.word.lower(), options.long, options.nocolor)
+    client = BingDictClient(options.long, options.color)
+    client.lookup(options.word.lower())
