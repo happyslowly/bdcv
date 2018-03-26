@@ -8,12 +8,13 @@ import pickle
 import zlib
 import argparse
 import re
+from urllib.parse import urlencode
 
 __version__ = '0.1.0'
 
 
 class BingDictClient(object):
-    URL = 'http://xtk.azurewebsites.net/BingDictService.aspx?Word='
+    URL = 'http://xtk.azurewebsites.net/BingDictService.aspx?'
     CACHE_FILE = os.path.join(os.path.expanduser("~"), '.bdcv')
     COLOR = {
         'cyan': '\033[96m',
@@ -29,7 +30,8 @@ class BingDictClient(object):
 
     def lookup(self, word):
         if word not in self.__cache:
-            full_url = BingDictClient.URL + word
+            param = {'Word': word}
+            full_url = BingDictClient.URL + urlencode(param)
             res = urllib.request.urlopen(full_url)
             raw_json = res.read()
             self.__cache[word] = zlib.compress(raw_json)
@@ -42,22 +44,25 @@ class BingDictClient(object):
         data = json.loads(raw_json)
         word = data['word']
 
-        print(self.__format_entry('Pronunciation'))
-        for k, p in data['pronunciation'].items():
-            if not k.endswith('mp3'):
-                print('    %s. [%s]' % (k, p))
+        if data['pronunciation']:
+            print(self.__format_entry('Pronunciation'))
+            for k, p in data['pronunciation'].items():
+                if not k.endswith('mp3'):
+                    print('    %s. [%s]' % (k, p))
 
-        print(self.__format_entry('Definition'))
-        for d in data['defs']:
-            if d['pos'] == 'Web':
-                continue
-            print('    %s %s' % (d['pos'], self.__format_chinese(d['def'])))
+        if data['defs']:
+            print(self.__format_entry('Definition'))
+            for d in data['defs']:
+                if d['pos'] == 'Web':
+                    continue
+                print('    %s %s' % (d['pos'], self.__format_chinese(d['def'])))
 
         if self.long:
-            print(self.__format_entry('Samples'))
-            for s in data['sams']:
-                print('  - %s' % self.__format_english_sample(s['eng'], word))
-                print('    %s' % self.__format_chinese(s['chn']))
+            if data['sams']:
+                print(self.__format_entry('Samples'))
+                for s in data['sams']:
+                    print('  - %s' % self.__format_sample(s['eng'], word))
+                    print('    %s' % self.__format_sample(s['chn'], word))
 
     @staticmethod
     def __load_cache():
@@ -81,7 +86,7 @@ class BingDictClient(object):
     def __format_chinese(self, text):
         return BingDictClient.__format_text(text, 'purple' if self.color else None)
 
-    def __format_english_sample(self, text, word):
+    def __format_sample(self, text, word):
         m = re.search(word, text, re.IGNORECASE)
         if m:
             return text[0:m.start()] + \
