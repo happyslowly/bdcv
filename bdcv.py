@@ -23,18 +23,7 @@ class BingDictClient(object):
     }
 
     def __init__(self):
-        self.__cache = BingDictClient.load_cache()
-
-    @staticmethod
-    def load_cache():
-        if not os.path.exists(BingDictClient.CACHE_FILE):
-            return {}
-        with open(BingDictClient.CACHE_FILE, 'rb') as fin:
-            return pickle.load(fin)
-
-    def write_cache(self):
-        with open(BingDictClient.CACHE_FILE, 'wb') as fout:
-            pickle.dump(self.__cache, fout)
+        self.__cache = BingDictClient.__load_cache()
 
     def lookup(self, word, long, nocolor):
         if word not in self.__cache:
@@ -42,10 +31,21 @@ class BingDictClient(object):
             res = urllib.request.urlopen(full_url)
             raw_json = res.read()
             self.__cache[word] = zlib.compress(raw_json)
-            self.write_cache()
+            self.__write_cache()
         else:
             raw_json = zlib.decompress(self.__cache[word])
         return BingDictClient.__render(raw_json, long, nocolor)
+
+    @staticmethod
+    def __load_cache():
+        if not os.path.exists(BingDictClient.CACHE_FILE):
+            return {}
+        with open(BingDictClient.CACHE_FILE, 'rb') as fin:
+            return pickle.load(fin)
+
+    def __write_cache(self):
+        with open(BingDictClient.CACHE_FILE, 'wb') as fout:
+            pickle.dump(self.__cache, fout)
 
     @staticmethod
     def __format_text(text, color_name, prefix=''):
