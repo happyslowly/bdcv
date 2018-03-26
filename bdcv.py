@@ -23,7 +23,8 @@ class BingDictClient(object):
         'end': '\033[0m'
     }
 
-    def __init__(self, long, color):
+    def __init__(self, lang, long, color):
+        self.lang = lang
         self.long = long
         self.color = True if color == 'on' else False
         self.__cache = BingDictClient.__load_cache()
@@ -55,14 +56,16 @@ class BingDictClient(object):
             for d in data['defs']:
                 if d['pos'] == 'Web':
                     continue
-                print('    %s %s' % (d['pos'], self.__format_chinese(d['def'])))
+                print('    %s %s' % (d['pos'], self.__format_explanation(d['def'])))
 
         if self.long:
             if data['sams']:
                 print(self.__format_entry('Samples'))
                 for s in data['sams']:
-                    print('  - %s' % self.__format_sample(s['eng'], word))
-                    print('    %s' % self.__format_sample(s['chn'], word))
+                    print('  - %s' % self.__format_sample(s['eng'] if self.lang == 'eng'
+                                                          else self.__format_explanation(s['eng']), word))
+                    print('    %s' % self.__format_sample(s['chn'] if self.lang == 'chn'
+                                                          else self.__format_explanation(s['chn']), word))
 
     @staticmethod
     def __load_cache():
@@ -83,7 +86,7 @@ class BingDictClient(object):
     def __format_entry(self, text):
         return BingDictClient.__format_text(text, 'cyan' if self.color else None, '* ')
 
-    def __format_chinese(self, text):
+    def __format_explanation(self, text):
         return BingDictClient.__format_text(text, 'purple' if self.color else None)
 
     def __format_sample(self, text, word):
@@ -94,6 +97,13 @@ class BingDictClient(object):
                    text[m.end():]
         else:
             return text
+
+
+def detect_lang(word):
+    for c in word:
+        if ord(c) > 127:
+            return 'chn'
+    return 'eng'
 
 
 def get_parser():
@@ -112,5 +122,8 @@ if __name__ == '__main__':
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    client = BingDictClient(options.long, options.color)
+    for c in options.word:
+        print(c)
+
+    client = BingDictClient(detect_lang(options.word), options.long, options.color)
     client.lookup(options.word.lower())
